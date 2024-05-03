@@ -10,3 +10,6 @@ __pycache__/
 logs/
 node_modules/
 sample_mev_task_bm/
+
+endpoints.json
+.python-version

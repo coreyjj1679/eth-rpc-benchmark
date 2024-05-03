@@ -1,13 +1,7 @@
 import os
 import timeit
+import json
 from web3 import Web3
-from dotenv import load_dotenv
-
-load_dotenv(override=True)
-
-# create a .env file
-ALCHEMY_FREE_RPC_URL = os.getenv('ALCHEMY_FREE_RPC_URL')
-ALCHEMY_PAID_RPC_URL = os.getenv('ALCHEMY_PAID_RPC_URL')
 
 
 def benchmark_tx_requests(w3: Web3, block_number: int):
@@ -33,29 +27,29 @@ def benchmark_contract_call(w3: Web3):
     # print(factory_address)
 
 
+def get_endpoint_arr():
+    with open('../rpc-benmark/endpoints.json') as f:
+        d = json.load(f)
+        return d
+
+
 if __name__ == '__main__':
-    free_w3 = Web3(Web3.HTTPProvider(ALCHEMY_FREE_RPC_URL))
-    paid_w3 = Web3(Web3.HTTPProvider(ALCHEMY_PAID_RPC_URL))
-    local_w3 = Web3(Web3.HTTPProvider('http://192.168.200.182:8545'))  # you need a local node for this
+    all_rpc = get_endpoint_arr()
+    dummy = Web3(Web3.HTTPProvider('https://eth.llamarpc.com'))
 
-    block_number = free_w3.eth.get_block('latest').number
+    # Ensure they start at the same block
+    start_block = dummy.eth.get_block('latest').number
+    for rpc in all_rpc:
+        endpoint_name = rpc['name']
+        endpoint_rpc_url = rpc['rpc_url']
+        provider = Web3(Web3.HTTPProvider(endpoint_rpc_url))
 
-    # TX requests
-    t1 = timeit.timeit(lambda: benchmark_tx_requests(free_w3, block_number), number=1)
-    print(f'Free tier: {t1} seconds')  # 26.88 seconds
+        # TX requests
+        tx_req_bm = timeit.timeit(lambda: benchmark_tx_requests(provider, start_block), number=1)
 
-    t2 = timeit.timeit(lambda: benchmark_tx_requests(paid_w3, block_number), number=1)
-    print(f'Paid tier: {t2} seconds')  # 28 seconds
+        # Contract calls
+        contract_call_bm = timeit.timeit(lambda: benchmark_contract_call(provider), number=10)
 
-    t3 = timeit.timeit(lambda: benchmark_tx_requests(local_w3, block_number), number=1)
-    print(f'Local: {t3} seconds')  # 0.54 seconds
+        print(endpoint_name, tx_req_bm, contract_call_bm)
 
-    # Contract calls
-    t1 = timeit.timeit(lambda: benchmark_contract_call(free_w3), number=10)
-    print(f'Free tier: {t1 / 10.0} seconds')
 
-    t2 = timeit.timeit(lambda: benchmark_contract_call(paid_w3), number=10)
-    print(f'Paid tier: {t2 / 10.0} seconds')
-
-    t3 = timeit.timeit(lambda: benchmark_contract_call(local_w3), number=10)
-    print(f'Local: {t3 / 10.0} seconds')
